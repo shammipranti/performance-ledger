@@ -642,104 +642,6 @@ function toast(msg, type = "info") {
     setTimeout(() => el.remove(), 300);
   }, 3200);
 }
-
-/* ============================================================
-   DATA SYNTHESIS & BUILT-IN SEED ENGINE
-   ============================================================ */
-function buildDataset() {
-  const ams = ["Rajesh Sharma", "Pooja Verma", "Vikram Singh"];
-  const tls = [
-    { name: "Aman Deep", am: "Rajesh Sharma" },
-    { name: "Neha Gupta", am: "Rajesh Sharma" },
-    { name: "Rohit Kumar", am: "Pooja Verma" },
-    { name: "Simran Kaur", am: "Pooja Verma" },
-    { name: "Harpreet Singh", am: "Vikram Singh" },
-    { name: "Anjali Mehta", am: "Vikram Singh" }
-  ];
-  const locs = ["Chandigarh", "Dhaka"];
-  const vars = ["Pricing Discrepancy", "Address Format Mismatch", "Item Tag Omission", "Tax Matrix Fault", "Packaging Code Error", "Modifier Missing", "Postal Route Misdirection", "Special Instruction Ignored"];
-  const rests = ["Burger King Sector 35", "Domino's Pizza Phase 7", "Subway IT Park", "Haldiram's Mohali", "KFC Elante", "Chai Point CP67", "Pizza Hut Phase 3B2", "Barbeque Nation Sector 26"];
-
-  const firstNames = ["Aarav", "Vivaan", "Aditya", "Vihaan", "Arjun", "Sai", "Reyansh", "Ayaan", "Krishna", "Ishaan", "Shaurya", "Atharv", "Dhruv", "Kabir", "Rudra", "Diya", "Saanvi", "Ananya", "Aadhya", "Pari", "Chiara", "Myra", "Riya", "Anvi", "Sneha", "Kavya", "Ishita", "Tanya", "Pooja", "Meera", "Karan", "Manish", "Gaurav", "Deepak", "Naveen", "Pankaj", "Rahul", "Vikas", "Suresh", "Ramesh"];
-  const lastNames = ["Sharma", "Verma", "Singh", "Kaur", "Gupta", "Kumar", "Mehta", "Malhotra", "Kapoor", "Bhatia", "Chopra", "Arora", "Sethi", "Bansal", "Mittal", "Aggarwal", "Jain", "Garg", "Bhasin", "Ahluwalia"];
-
-  const people = [];
-  let nameIdx = 0;
-  for (let i = 0; i < 40; i++) {
-    const fn = firstNames[nameIdx % firstNames.length];
-    const ln = lastNames[Math.floor(nameIdx / firstNames.length) % lastNames.length];
-    nameIdx++;
-    const tl = tls[i % tls.length];
-    const isSpec = i % 8 === 0;
-    people.push({
-      id: "p" + (i + 1),
-      name: fn + " " + ln,
-      role: isSpec ? "spec" : "analyst",
-      am: tl.am,
-      tl: tl.name,
-      loc: locs[i % 2],
-      home: i % 4 === 0 ? "IPA" : "Legacy"
-    });
-  }
-
-  const days = [];
-  const base = new Date("2026-08-01T00:00:00Z");
-  for (let d = 0; d < 35; d++) {
-    const dt = new Date(base.getTime() + d * 864e5);
-    if (dt.getUTCDay() !== 0 && dt.getUTCDay() !== 6) {
-      days.push(dt.toISOString().slice(0, 10));
-    }
-  }
-
-  const prod = [];
-  const mis = [];
-  let orderSeq = 10001;
-
-  people.forEach((p, pIdx) => {
-    const skillTier = 0.8 + (pIdx % 7) * 0.08;
-    const isDual = pIdx % 5 === 0;
-
-    days.forEach(day => {
-      const pCount = Math.round((28 + (pIdx * 3 % 15) + Math.sin(pIdx + day.length) * 5) * skillTier);
-      prod.push({
-        name: p.name,
-        date: day,
-        productivity: pCount,
-        platform: p.home,
-        loc: p.loc
-      });
-
-      if (isDual) {
-        prod.push({
-          name: p.name,
-          date: day,
-          productivity: Math.round(pCount * 0.45),
-          platform: p.home === "Legacy" ? "IPA" : "Legacy",
-          loc: p.loc
-        });
-      }
-
-      const totalPoss = pCount * 6;
-      const defectTarget = (pIdx % 6 === 0 ? 0.008 : 0.022) * totalPoss;
-      const misCount = Math.max(0, Math.round(defectTarget + (Math.random() - 0.5) * 2));
-
-      for (let m = 0; m < misCount; m++) {
-        mis.push({
-          name: p.name,
-          date: day,
-          variable: vars[(pIdx + m * 3) % vars.length],
-          restaurant: rests[(m * 2 + pIdx) % rests.length],
-          order: "ORD-" + (orderSeq++),
-          platform: p.home,
-          loc: p.loc
-        });
-      }
-    });
-  });
-
-  return { people, prod, mis, builtIn: true };
-}
-
 /* Application State */
 const STATE = {
   data: null,
@@ -2869,16 +2771,19 @@ function wirePublish() {
   document.documentElement.dataset.theme = th;
   updateThemeUI(th);
 
+  /* Admin publishing controls: reveal before anything can return early.
+     Hidden on the plain public link. */
+  if (location.hash === "#admin" || new URLSearchParams(location.search).has("admin")) {
+    const pubBtn = document.getElementById("publishBtn");
+    if (pubBtn) pubBtn.style.display = "";
+    wirePublish();
+  }
+
   if (liveConfigured()) {
     try {
       const liveBuf = await fetchLiveFile();
       if (liveBuf) { await importWorkbook(liveBuf); return; }
     } catch (_) { /* fall through to blank state */ }
-  }
-  if (location.hash === "#admin" || new URLSearchParams(location.search).has("admin")) {
-    const pubBtn = document.getElementById("publishBtn");
-    if (pubBtn) pubBtn.style.display = "";
-    wirePublish();
   }
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem("op-data")); } catch (_) {}
